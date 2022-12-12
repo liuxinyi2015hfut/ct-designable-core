@@ -1,31 +1,18 @@
-var __assign = (this && this.__assign) || function () {
-    __assign = Object.assign || function(t) {
-        for (var s, i = 1, n = arguments.length; i < n; i++) {
-            s = arguments[i];
-            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
-                t[p] = s[p];
-        }
-        return t;
-    };
-    return __assign.apply(this, arguments);
-};
-import { CursorType } from '../models';
+import { CursorDragType } from '../models';
 import { DragStartEvent, DragMoveEvent, DragStopEvent } from '../events';
-import { Point } from '@designable/shared';
 export var useResizeEffect = function (engine) {
     var findStartNodeHandler = function (target) {
-        var handler = target === null || target === void 0 ? void 0 : target.closest("*[" + engine.props.nodeResizeHandlerAttrName + "]");
+        var handler = target === null || target === void 0 ? void 0 : target.closest("*[".concat(engine.props.nodeResizeHandlerAttrName, "]"));
         if (handler) {
-            var type = handler.getAttribute(engine.props.nodeResizeHandlerAttrName);
-            if (type) {
-                var element = handler.closest("*[" + engine.props.nodeSelectionIdAttrName + "]");
+            var direction = handler.getAttribute(engine.props.nodeResizeHandlerAttrName);
+            if (direction) {
+                var element = handler.closest("*[".concat(engine.props.nodeSelectionIdAttrName, "]"));
                 if (element) {
                     var nodeId = element.getAttribute(engine.props.nodeSelectionIdAttrName);
                     if (nodeId) {
                         var node = engine.findNodeById(nodeId);
                         if (node) {
-                            var axis = type.includes('x') ? 'x' : 'y';
-                            return { axis: axis, type: type, node: node, element: element };
+                            return { direction: direction, node: node, element: element };
                         }
                     }
                 }
@@ -33,86 +20,61 @@ export var useResizeEffect = function (engine) {
         }
         return;
     };
-    var store = {};
     engine.subscribeTo(DragStartEvent, function (event) {
-        if (engine.cursor.type !== CursorType.Move)
-            return;
+        var _a, _b;
         var target = event.data.target;
-        var data = findStartNodeHandler(target);
-        if (data) {
-            var point = new Point(event.data.clientX, event.data.clientY);
-            store.value = __assign(__assign({}, data), { point: point });
-            if (data.axis === 'x') {
-                engine.cursor.setStyle('ew-resize');
-            }
-            else if (data.axis === 'y') {
-                engine.cursor.setStyle('ns-resize');
+        var currentWorkspace = (_b = (_a = event.context) === null || _a === void 0 ? void 0 : _a.workspace) !== null && _b !== void 0 ? _b : engine.workbench.activeWorkspace;
+        if (!currentWorkspace)
+            return;
+        var handler = findStartNodeHandler(target);
+        var helper = currentWorkspace.operation.transformHelper;
+        if (handler) {
+            var selectionElement = handler.element.closest("*[".concat(engine.props.nodeSelectionIdAttrName, "]"));
+            if (selectionElement) {
+                var nodeId = selectionElement.getAttribute(engine.props.nodeSelectionIdAttrName);
+                if (nodeId) {
+                    var node = engine.findNodeById(nodeId);
+                    if (node) {
+                        helper.dragStart({
+                            dragNodes: [node],
+                            type: 'resize',
+                            direction: handler.direction,
+                        });
+                    }
+                }
             }
         }
     });
     engine.subscribeTo(DragMoveEvent, function (event) {
         var _a, _b;
-        if (engine.cursor.type !== CursorType.Move)
+        if (engine.cursor.dragType !== CursorDragType.Resize)
             return;
-        if (store.value) {
-            var _c = store.value, axis = _c.axis, type = _c.type, node = _c.node, element = _c.element, point = _c.point;
-            var allowResize = node.allowResize();
-            if (!allowResize)
-                return;
-            var resizable = node.designerProps.resizable;
-            var rect = element.getBoundingClientRect();
-            var current = new Point(event.data.clientX, event.data.clientY);
-            var plusX = type === 'x-end' ? current.x > point.x : current.x < point.x;
-            var plusY = type === 'y-end' ? current.y > point.y : current.y < point.y;
-            var allowX = allowResize.includes('x');
-            var allowY = allowResize.includes('y');
-            var width = (_a = resizable.width) === null || _a === void 0 ? void 0 : _a.call(resizable, node, element);
-            var height = (_b = resizable.height) === null || _b === void 0 ? void 0 : _b.call(resizable, node, element);
-            if (axis === 'x') {
-                if (plusX && type === 'x-end' && current.x < rect.x + rect.width)
-                    return;
-                if (!plusX && type === 'x-end' && current.x > rect.x + rect.width)
-                    return;
-                if (plusX && type === 'x-start' && current.x > rect.x)
-                    return;
-                if (!plusX && type === 'x-start' && current.x < rect.x)
-                    return;
-                if (allowX) {
-                    if (plusX) {
-                        width.plus();
-                    }
-                    else {
-                        width.minus();
-                    }
-                }
-            }
-            else if (axis === 'y') {
-                if (plusY && type === 'y-end' && current.y < rect.y + rect.height)
-                    return;
-                if (!plusY && type === 'y-end' && current.y > rect.y + rect.height)
-                    return;
-                if (plusY && type === 'y-start' && current.y > rect.y)
-                    return;
-                if (!plusY && type === 'y-start' && current.y < rect.y)
-                    return;
-                if (allowY) {
-                    if (plusY) {
-                        height.plus();
-                    }
-                    else {
-                        height.minus();
-                    }
-                }
-            }
-            store.value.point = current;
-        }
+        var currentWorkspace = (_b = (_a = event.context) === null || _a === void 0 ? void 0 : _a.workspace) !== null && _b !== void 0 ? _b : engine.workbench.activeWorkspace;
+        var helper = currentWorkspace === null || currentWorkspace === void 0 ? void 0 : currentWorkspace.operation.transformHelper;
+        var dragNodes = helper.dragNodes;
+        if (!dragNodes.length)
+            return;
+        helper.dragMove();
+        dragNodes.forEach(function (node) {
+            var element = node.getElement();
+            helper.resize(node, function (rect) {
+                element.style.width = rect.width + 'px';
+                element.style.height = rect.height + 'px';
+                element.style.position = 'absolute';
+                element.style.left = '0px';
+                element.style.top = '0px';
+                element.style.transform = "translate3d(".concat(rect.x, "px,").concat(rect.y, "px,0)");
+            });
+        });
     });
-    engine.subscribeTo(DragStopEvent, function () {
-        if (engine.cursor.type !== CursorType.Move)
+    engine.subscribeTo(DragStopEvent, function (event) {
+        var _a, _b;
+        if (engine.cursor.dragType !== CursorDragType.Resize)
             return;
-        if (store.value) {
-            store.value = null;
-            engine.cursor.setStyle('');
+        var currentWorkspace = (_b = (_a = event.context) === null || _a === void 0 ? void 0 : _a.workspace) !== null && _b !== void 0 ? _b : engine.workbench.activeWorkspace;
+        var helper = currentWorkspace === null || currentWorkspace === void 0 ? void 0 : currentWorkspace.operation.transformHelper;
+        if (helper) {
+            helper.dragEnd();
         }
     });
 };

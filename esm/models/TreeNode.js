@@ -14,12 +14,17 @@ var __read = (this && this.__read) || function (o, n) {
     }
     return ar;
 };
-var __spread = (this && this.__spread) || function () {
-    for (var ar = [], i = 0; i < arguments.length; i++) ar = ar.concat(__read(arguments[i]));
-    return ar;
+var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
+    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+        if (ar || !(i in from)) {
+            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+            ar[i] = from[i];
+        }
+    }
+    return to.concat(ar || Array.prototype.slice.call(from));
 };
 import { action, define, observable, toJS } from '@formily/reactive';
-import { uid, isFn } from '@designable/shared';
+import { uid, isFn, each } from '@designable/shared';
 import { InsertBeforeEvent, InsertAfterEvent, InsertChildrenEvent, PrependNodeEvent, AppendNodeEvent, WrapNodeEvent, UpdateChildrenEvent, RemoveNodeEvent, UpdateNodePropsEvent, CloneNodeEvent, FromNodeEvent, } from '../events';
 import { GlobalRegistry } from '../registry';
 import { mergeLocales } from '../internals';
@@ -45,6 +50,7 @@ var resetNodesParent = function (nodes, parent) {
         resetNodesParent(node.children, node);
     };
     return nodes.map(function (node) {
+        var _a;
         if (node === parent)
             return node;
         if (!parent.isSourceNode) {
@@ -53,7 +59,7 @@ var resetNodesParent = function (nodes, parent) {
                 resetDepth(node);
             }
             else if (!node.isRoot && node.isInOperation) {
-                node.root.operation.selection.remove(node);
+                (_a = node.operation) === null || _a === void 0 ? void 0 : _a.selection.remove(node);
                 removeNode(node);
                 shallowReset(node);
             }
@@ -99,7 +105,7 @@ var TreeNode = /** @class */ (function () {
         }
         else {
             this.root = this;
-            this.operation = node.operation;
+            this.rootOperation = node.operation;
             this.isSelfSourceNode = node.isSourceNode || false;
             TreeNodes.set(this.id, this);
         }
@@ -212,8 +218,7 @@ var TreeNode = /** @class */ (function () {
     });
     Object.defineProperty(TreeNode.prototype, "isInOperation", {
         get: function () {
-            var _a;
-            return !!((_a = this.root) === null || _a === void 0 ? void 0 : _a.operation);
+            return !!this.operation;
         },
         enumerable: false,
         configurable: true
@@ -239,6 +244,68 @@ var TreeNode = /** @class */ (function () {
         enumerable: false,
         configurable: true
     });
+    Object.defineProperty(TreeNode.prototype, "operation", {
+        get: function () {
+            var _a;
+            return (_a = this.root) === null || _a === void 0 ? void 0 : _a.rootOperation;
+        },
+        enumerable: false,
+        configurable: true
+    });
+    Object.defineProperty(TreeNode.prototype, "viewport", {
+        get: function () {
+            var _a, _b;
+            return (_b = (_a = this.operation) === null || _a === void 0 ? void 0 : _a.workspace) === null || _b === void 0 ? void 0 : _b.viewport;
+        },
+        enumerable: false,
+        configurable: true
+    });
+    Object.defineProperty(TreeNode.prototype, "outline", {
+        get: function () {
+            var _a, _b;
+            return (_b = (_a = this.operation) === null || _a === void 0 ? void 0 : _a.workspace) === null || _b === void 0 ? void 0 : _b.outline;
+        },
+        enumerable: false,
+        configurable: true
+    });
+    Object.defineProperty(TreeNode.prototype, "moveLayout", {
+        get: function () {
+            var _a;
+            return (_a = this.viewport) === null || _a === void 0 ? void 0 : _a.getValidNodeLayout(this);
+        },
+        enumerable: false,
+        configurable: true
+    });
+    TreeNode.prototype.getElement = function (area) {
+        var _a;
+        if (area === void 0) { area = 'viewport'; }
+        return (_a = this[area]) === null || _a === void 0 ? void 0 : _a.findElementById(this.id);
+    };
+    TreeNode.prototype.getValidElement = function (area) {
+        var _a;
+        if (area === void 0) { area = 'viewport'; }
+        return (_a = this[area]) === null || _a === void 0 ? void 0 : _a.getValidNodeElement(this);
+    };
+    TreeNode.prototype.getElementRect = function (area) {
+        var _a;
+        if (area === void 0) { area = 'viewport'; }
+        return (_a = this[area]) === null || _a === void 0 ? void 0 : _a.getElementRect(this.getElement(area));
+    };
+    TreeNode.prototype.getValidElementRect = function (area) {
+        var _a;
+        if (area === void 0) { area = 'viewport'; }
+        return (_a = this[area]) === null || _a === void 0 ? void 0 : _a.getValidNodeRect(this);
+    };
+    TreeNode.prototype.getElementOffsetRect = function (area) {
+        var _a;
+        if (area === void 0) { area = 'viewport'; }
+        return (_a = this[area]) === null || _a === void 0 ? void 0 : _a.getElementOffsetRect(this.getElement(area));
+    };
+    TreeNode.prototype.getValidElementOffsetRect = function (area) {
+        var _a;
+        if (area === void 0) { area = 'viewport'; }
+        return (_a = this[area]) === null || _a === void 0 ? void 0 : _a.getValidNodeOffsetRect(this);
+    };
     TreeNode.prototype.getPrevious = function (step) {
         if (step === void 0) { step = 1; }
         return this.parent.children[this.index - step];
@@ -253,7 +320,8 @@ var TreeNode = /** @class */ (function () {
     };
     TreeNode.prototype.getParents = function (node) {
         var _node = node || this;
-        return (_node === null || _node === void 0 ? void 0 : _node.parent) ? [_node.parent].concat(this.getParents(_node.parent))
+        return (_node === null || _node === void 0 ? void 0 : _node.parent)
+            ? [_node.parent].concat(this.getParents(_node.parent))
             : [];
     };
     TreeNode.prototype.getParentByDepth = function (depth) {
@@ -290,14 +358,11 @@ var TreeNode = /** @class */ (function () {
     };
     TreeNode.prototype.takeSnapshot = function (type) {
         var _a;
-        if ((_a = this.root) === null || _a === void 0 ? void 0 : _a.operation) {
-            this.root.operation.snapshot(type);
-        }
+        (_a = this.operation) === null || _a === void 0 ? void 0 : _a.snapshot(type);
     };
     TreeNode.prototype.triggerMutation = function (event, callback, defaults) {
-        var _a;
-        if ((_a = this.root) === null || _a === void 0 ? void 0 : _a.operation) {
-            var result = this.root.operation.dispatch(event, callback) || defaults;
+        if (this.operation) {
+            var result = this.operation.dispatch(event, callback) || defaults;
             this.takeSnapshot(event === null || event === void 0 ? void 0 : event.type);
             return result;
         }
@@ -310,14 +375,14 @@ var TreeNode = /** @class */ (function () {
             return this;
         }
         else {
-            var finded_1 = undefined;
+            var result_1 = undefined;
             this.eachChildren(function (node) {
                 if (finder(node)) {
-                    finded_1 = node;
+                    result_1 = node;
                     return false;
                 }
             });
-            return finded_1;
+            return result_1;
         }
     };
     TreeNode.prototype.findAll = function (finder) {
@@ -400,6 +465,9 @@ var TreeNode = /** @class */ (function () {
             return ['x'];
         return ['y'];
     };
+    TreeNode.prototype.allowRotate = function () { };
+    TreeNode.prototype.allowRound = function () { };
+    TreeNode.prototype.allowScale = function () { };
     TreeNode.prototype.allowTranslate = function () {
         if (this === this.root && !this.isSourceNode)
             return false;
@@ -438,6 +506,13 @@ var TreeNode = /** @class */ (function () {
             }
             return false;
         });
+    };
+    TreeNode.prototype.eachTree = function (callback) {
+        var _a;
+        if (isFn(callback)) {
+            callback(this.root);
+            (_a = this.root) === null || _a === void 0 ? void 0 : _a.eachChildren(callback);
+        }
     };
     TreeNode.prototype.eachChildren = function (callback) {
         if (isFn(callback)) {
@@ -643,7 +718,7 @@ var TreeNode = /** @class */ (function () {
         for (var _i = 0; _i < arguments.length; _i++) {
             nodes[_i] = arguments[_i];
         }
-        return this.setChildren.apply(this, __spread(nodes));
+        return this.setChildren.apply(this, __spreadArray([], __read(nodes), false));
     };
     TreeNode.prototype.remove = function () {
         var _this = this;
@@ -717,6 +792,140 @@ var TreeNode = /** @class */ (function () {
     };
     TreeNode.findById = function (id) {
         return TreeNodes.get(id);
+    };
+    TreeNode.remove = function (nodes) {
+        var _a, _b;
+        if (nodes === void 0) { nodes = []; }
+        for (var i = nodes.length - 1; i >= 0; i--) {
+            var node = nodes[i];
+            if (node.allowDelete()) {
+                var previous = node.previous;
+                var next = node.next;
+                node.remove();
+                (_a = node.operation) === null || _a === void 0 ? void 0 : _a.selection.select(previous ? previous : next ? next : node.parent);
+                (_b = node.operation) === null || _b === void 0 ? void 0 : _b.hover.clear();
+            }
+        }
+    };
+    TreeNode.sort = function (nodes) {
+        if (nodes === void 0) { nodes = []; }
+        return nodes.sort(function (before, after) {
+            if (before.depth !== after.depth)
+                return 0;
+            return before.index - after.index >= 0 ? 1 : -1;
+        });
+    };
+    TreeNode.clone = function (nodes) {
+        if (nodes === void 0) { nodes = []; }
+        var groups = {};
+        var lastGroupNode = {};
+        var filterNestedNode = TreeNode.sort(nodes).filter(function (node) {
+            return !nodes.some(function (parent) {
+                return node.isMyParents(parent);
+            });
+        });
+        each(filterNestedNode, function (node) {
+            var _a, _b, _c, _d, _e, _f, _g;
+            if (node === node.root)
+                return;
+            if (!node.allowClone())
+                return;
+            if (!(node === null || node === void 0 ? void 0 : node.operation))
+                return;
+            groups[(_a = node === null || node === void 0 ? void 0 : node.parent) === null || _a === void 0 ? void 0 : _a.id] = groups[(_b = node === null || node === void 0 ? void 0 : node.parent) === null || _b === void 0 ? void 0 : _b.id] || [];
+            groups[(_c = node === null || node === void 0 ? void 0 : node.parent) === null || _c === void 0 ? void 0 : _c.id].push(node);
+            if (lastGroupNode[(_d = node === null || node === void 0 ? void 0 : node.parent) === null || _d === void 0 ? void 0 : _d.id]) {
+                if (node.index > lastGroupNode[(_e = node === null || node === void 0 ? void 0 : node.parent) === null || _e === void 0 ? void 0 : _e.id].index) {
+                    lastGroupNode[(_f = node === null || node === void 0 ? void 0 : node.parent) === null || _f === void 0 ? void 0 : _f.id] = node;
+                }
+            }
+            else {
+                lastGroupNode[(_g = node === null || node === void 0 ? void 0 : node.parent) === null || _g === void 0 ? void 0 : _g.id] = node;
+            }
+        });
+        var parents = new Map();
+        each(groups, function (nodes, parentId) {
+            var lastNode = lastGroupNode[parentId];
+            var insertPoint = lastNode;
+            each(nodes, function (node) {
+                var _a, _b;
+                var cloned = node.clone();
+                if (!cloned)
+                    return;
+                if (((_a = node.operation) === null || _a === void 0 ? void 0 : _a.selection.has(node)) &&
+                    insertPoint.parent.allowAppend([cloned])) {
+                    insertPoint.insertAfter(cloned);
+                    insertPoint = insertPoint.next;
+                }
+                else if (node.operation.selection.length === 1) {
+                    var targetNode = (_b = node.operation) === null || _b === void 0 ? void 0 : _b.tree.findById(node.operation.selection.first);
+                    var cloneNodes = parents.get(targetNode);
+                    if (!cloneNodes) {
+                        cloneNodes = [];
+                        parents.set(targetNode, cloneNodes);
+                    }
+                    if (targetNode && targetNode.allowAppend([cloned])) {
+                        cloneNodes.push(cloned);
+                    }
+                }
+            });
+        });
+        parents.forEach(function (nodes, target) {
+            if (!nodes.length)
+                return;
+            target.append.apply(target, __spreadArray([], __read(nodes), false));
+        });
+    };
+    TreeNode.filterResizable = function (nodes) {
+        if (nodes === void 0) { nodes = []; }
+        return nodes.filter(function (node) { return node.allowResize(); });
+    };
+    TreeNode.filterRotatable = function (nodes) {
+        if (nodes === void 0) { nodes = []; }
+        return nodes.filter(function (node) { return node.allowRotate(); });
+    };
+    TreeNode.filterScalable = function (nodes) {
+        if (nodes === void 0) { nodes = []; }
+        return nodes.filter(function (node) { return node.allowScale(); });
+    };
+    TreeNode.filterRoundable = function (nodes) {
+        if (nodes === void 0) { nodes = []; }
+        return nodes.filter(function (node) { return node.allowRound(); });
+    };
+    TreeNode.filterTranslatable = function (nodes) {
+        if (nodes === void 0) { nodes = []; }
+        return nodes.filter(function (node) { return node.allowTranslate(); });
+    };
+    TreeNode.filterDraggable = function (nodes) {
+        if (nodes === void 0) { nodes = []; }
+        return nodes.reduce(function (buf, node) {
+            var _a;
+            if (!node.allowDrag())
+                return buf;
+            if (isFn((_a = node === null || node === void 0 ? void 0 : node.designerProps) === null || _a === void 0 ? void 0 : _a.getDragNodes)) {
+                var transformed = node.designerProps.getDragNodes(node);
+                return transformed ? buf.concat(transformed) : buf;
+            }
+            if (node.componentName === '$$ResourceNode$$')
+                return buf.concat(node.children);
+            return buf.concat([node]);
+        }, []);
+    };
+    TreeNode.filterDroppable = function (nodes, parent) {
+        if (nodes === void 0) { nodes = []; }
+        return nodes.reduce(function (buf, node) {
+            var _a;
+            if (!node.allowDrop(parent))
+                return buf;
+            if (isFn((_a = node.designerProps) === null || _a === void 0 ? void 0 : _a.getDropNodes)) {
+                var cloned = node.isSourceNode ? node.clone(node.parent) : node;
+                var transformed = node.designerProps.getDropNodes(cloned, parent);
+                return transformed ? buf.concat(transformed) : buf;
+            }
+            if (node.componentName === '$$ResourceNode$$')
+                return buf.concat(node.children);
+            return buf.concat([node]);
+        }, []);
     };
     return TreeNode;
 }());

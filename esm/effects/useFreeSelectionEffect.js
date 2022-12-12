@@ -15,21 +15,22 @@ var __read = (this && this.__read) || function (o, n) {
     return ar;
 };
 import { DragStopEvent } from '../events';
-import { CursorType } from '../models';
+import { CursorType, CursorDragType } from '../models';
 import { calcRectByStartEndPoint, isCrossRectInRect, isRectInRect, Point, } from '@designable/shared';
 export var useFreeSelectionEffect = function (engine) {
     engine.subscribeTo(DragStopEvent, function (event) {
-        if (engine.cursor.type !== CursorType.Selection)
+        if (engine.cursor.dragType !== CursorDragType.Move) {
             return;
+        }
         engine.workbench.eachWorkspace(function (workspace) {
             var viewport = workspace.viewport;
-            var dragStartPoint = new Point(engine.cursor.dragStartPosition.topClientX, engine.cursor.dragStartPosition.topClientY);
+            var dragEndPoint = new Point(event.data.topClientX, event.data.topClientY);
             var dragStartOffsetPoint = viewport.getOffsetPoint(new Point(engine.cursor.dragStartPosition.topClientX, engine.cursor.dragStartPosition.topClientY));
             var dragEndOffsetPoint = viewport.getOffsetPoint(new Point(engine.cursor.position.topClientX, engine.cursor.position.topClientY));
-            if (!viewport.isPointInViewport(dragStartPoint, false))
+            if (!viewport.isPointInViewport(dragEndPoint, false))
                 return;
             var tree = workspace.operation.tree;
-            var selectionRect = calcRectByStartEndPoint(dragStartOffsetPoint, dragEndOffsetPoint, viewport.scrollX - engine.cursor.dragStartScrollOffset.scrollX, viewport.scrollY - engine.cursor.dragStartScrollOffset.scrollY);
+            var selectionRect = calcRectByStartEndPoint(dragStartOffsetPoint, dragEndOffsetPoint, viewport.dragScrollXDelta, viewport.dragScrollYDelta);
             var selected = [];
             tree.eachChildren(function (node) {
                 var nodeRect = viewport.getValidNodeOffsetRect(node);
@@ -51,6 +52,8 @@ export var useFreeSelectionEffect = function (engine) {
             }, []);
             workspace.operation.selection.batchSafeSelect(selectedNodes);
         });
-        engine.cursor.setType(CursorType.Move);
+        if (engine.cursor.type === CursorType.Selection) {
+            engine.cursor.setType(CursorType.Normal);
+        }
     });
 };

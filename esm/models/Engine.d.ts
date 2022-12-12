@@ -21,7 +21,7 @@ export declare class Engine extends Event {
     getCurrentTree(): TreeNode;
     getAllSelectedNodes(): TreeNode[];
     findNodeById(id: string): TreeNode;
-    findDraggingNodes(): TreeNode[];
+    findMovingNodes(): TreeNode[];
     createNode(node: ITreeNode, parent?: TreeNode): TreeNode;
     mount(): void;
     unmount(): void;

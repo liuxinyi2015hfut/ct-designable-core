@@ -1,4 +1,4 @@
-import { CursorStatus, CursorType } from '../models';
+import { CursorStatus } from '../models';
 import { DragMoveEvent, DragStartEvent, DragStopEvent } from '../events';
 import { calcAutoScrollBasicInfo, scrollAnimate, Point, } from '@designable/shared';
 export var useAutoScrollEffect = function (engine) {
@@ -34,27 +34,12 @@ export var useAutoScrollEffect = function (engine) {
             }
         }
     };
-    engine.subscribeTo(DragStartEvent, function (event) {
-        if (engine.cursor.type !== CursorType.Move &&
-            engine.cursor.type !== CursorType.Selection)
-            return;
+    engine.subscribeTo(DragStartEvent, function () {
         engine.workbench.eachWorkspace(function (workspace) {
-            var viewport = workspace.viewport;
-            var outline = workspace.outline;
-            var point = new Point(event.data.topClientX, event.data.topClientY);
-            if (!viewport.isPointInViewport(point) &&
-                !outline.isPointInViewport(point))
-                return;
-            engine.cursor.setDragStartScrollOffset({
-                scrollX: viewport.scrollX,
-                scrollY: viewport.scrollY,
-            });
+            workspace.viewport.takeDragStartSnapshot();
         });
     });
     engine.subscribeTo(DragMoveEvent, function (event) {
-        if (engine.cursor.type !== CursorType.Move &&
-            engine.cursor.type !== CursorType.Selection)
-            return;
         engine.workbench.eachWorkspace(function (workspace) {
             var viewport = workspace.viewport;
             var outline = workspace.outline;
@@ -68,9 +53,6 @@ export var useAutoScrollEffect = function (engine) {
         });
     });
     engine.subscribeTo(DragStopEvent, function () {
-        if (engine.cursor.type !== CursorType.Move &&
-            engine.cursor.type !== CursorType.Selection)
-            return;
         xScroller = null;
         yScroller = null;
         if (xScrollerAnimationStop) {

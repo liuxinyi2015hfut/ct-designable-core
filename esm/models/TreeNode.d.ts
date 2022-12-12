@@ -16,7 +16,7 @@ export interface INodeFinder {
 export declare class TreeNode {
     parent: TreeNode;
     root: TreeNode;
-    operation: Operation;
+    rootOperation: Operation;
     id: string;
     depth: number;
     hidden: boolean;
@@ -39,6 +39,16 @@ export declare class TreeNode {
     get lastChild(): TreeNode;
     get firstChild(): TreeNode;
     get isSourceNode(): boolean;
+    get operation(): Operation;
+    get viewport(): import("./Viewport").Viewport;
+    get outline(): import("./Viewport").Viewport;
+    get moveLayout(): "vertical" | "horizontal";
+    getElement(area?: 'viewport' | 'outline'): HTMLElement;
+    getValidElement(area?: 'viewport' | 'outline'): Element;
+    getElementRect(area?: 'viewport' | 'outline'): import("@designable/shared").Rect;
+    getValidElementRect(area?: 'viewport' | 'outline'): import("@designable/shared").Rect;
+    getElementOffsetRect(area?: 'viewport' | 'outline'): import("@designable/shared").Rect;
+    getValidElementOffsetRect(area?: 'viewport' | 'outline'): import("@designable/shared").Rect;
     getPrevious(step?: number): TreeNode;
     getAfter(step?: number): TreeNode;
     getSibling(index?: number): TreeNode;
@@ -62,10 +72,14 @@ export declare class TreeNode {
     allowClone(): boolean;
     allowDrag(): boolean;
     allowResize(): false | Array<'x' | 'y'>;
+    allowRotate(): void;
+    allowRound(): void;
+    allowScale(): void;
     allowTranslate(): boolean;
     allowDelete(): boolean;
     findById(id: string): TreeNode;
     contains(...nodes: TreeNode[]): boolean;
+    eachTree(callback?: (node: TreeNode) => void | boolean): void;
     eachChildren(callback?: (node: TreeNode) => void | boolean): void;
     resetNodesParent(nodes: TreeNode[], parent: TreeNode): TreeNode[];
     setProps(props?: any): void;
@@ -88,4 +102,14 @@ export declare class TreeNode {
     serialize(): ITreeNode;
     static create(node: ITreeNode, parent?: TreeNode): TreeNode;
     static findById(id: string): TreeNode;
+    static remove(nodes?: TreeNode[]): void;
+    static sort(nodes?: TreeNode[]): TreeNode[];
+    static clone(nodes?: TreeNode[]): void;
+    static filterResizable(nodes?: TreeNode[]): TreeNode[];
+    static filterRotatable(nodes?: TreeNode[]): TreeNode[];
+    static filterScalable(nodes?: TreeNode[]): TreeNode[];
+    static filterRoundable(nodes?: TreeNode[]): TreeNode[];
+    static filterTranslatable(nodes?: TreeNode[]): TreeNode[];
+    static filterDraggable(nodes?: TreeNode[]): any[];
+    static filterDroppable(nodes: TreeNode[], parent: TreeNode): any[];
 }

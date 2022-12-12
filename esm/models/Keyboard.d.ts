@@ -24,6 +24,6 @@ export declare class Keyboard {
     handleModifiers(event: AbstractKeyboardEvent): void;
     handleKeyboard(event: AbstractKeyboardEvent, context: IEngineContext): void;
     isKeyDown(code: KeyCode): boolean;
-    requestClean(): void;
+    requestClean(duration?: number): void;
     makeObservable(): void;
 }

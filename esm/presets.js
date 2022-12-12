@@ -2,22 +2,22 @@ import { DragDropDriver, MouseClickDriver, MouseMoveDriver, ViewportResizeDriver
 import { useCursorEffect, useViewportEffect, useDragDropEffect, useSelectionEffect, useResizeEffect, useKeyboardEffect, useAutoScrollEffect, useWorkspaceEffect, useFreeSelectionEffect, useContentEditableEffect, useTranslateEffect, } from './effects';
 import { SelectNodes, SelectAllNodes, SelectSameTypeNodes, DeleteNodes, CopyNodes, PasteNodes, UndoMutation, RedoMutation, CursorSwitchSelection, PreventCommandX, SelectPrevNode, SelectNextNode, } from './shortcuts';
 export var DEFAULT_EFFECTS = [
+    useFreeSelectionEffect,
     useCursorEffect,
     useViewportEffect,
     useDragDropEffect,
-    useResizeEffect,
     useSelectionEffect,
     useKeyboardEffect,
     useAutoScrollEffect,
     useWorkspaceEffect,
-    useFreeSelectionEffect,
     useContentEditableEffect,
     useTranslateEffect,
+    useResizeEffect,
 ];
 export var DEFAULT_DRIVERS = [
+    MouseMoveDriver,
     DragDropDriver,
     MouseClickDriver,
-    MouseMoveDriver,
     ViewportResizeDriver,
     ViewportScrollDriver,
     KeyboardDriver,

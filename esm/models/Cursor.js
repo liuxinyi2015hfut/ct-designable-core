@@ -10,7 +10,7 @@ var __assign = (this && this.__assign) || function () {
     return __assign.apply(this, arguments);
 };
 import { action, define, observable } from '@formily/reactive';
-import { globalThisPolyfill } from '@designable/shared';
+import { globalThisPolyfill, isValidNumber } from '@designable/shared';
 export var CursorStatus;
 (function (CursorStatus) {
     CursorStatus["Normal"] = "NORMAL";
@@ -18,10 +18,20 @@ export var CursorStatus;
     CursorStatus["Dragging"] = "DRAGGING";
     CursorStatus["DragStop"] = "DRAG_STOP";
 })(CursorStatus || (CursorStatus = {}));
+export var CursorDragType;
+(function (CursorDragType) {
+    CursorDragType["Move"] = "MOVE";
+    CursorDragType["Resize"] = "RESIZE";
+    CursorDragType["Rotate"] = "ROTATE";
+    CursorDragType["Scale"] = "SCALE";
+    CursorDragType["Translate"] = "TRANSLATE";
+    CursorDragType["Round"] = "ROUND";
+})(CursorDragType || (CursorDragType = {}));
 export var CursorType;
 (function (CursorType) {
-    CursorType["Move"] = "MOVE";
+    CursorType["Normal"] = "NORMAL";
     CursorType["Selection"] = "SELECTION";
+    CursorType["Sketch"] = "SKETCH";
 })(CursorType || (CursorType = {}));
 var DEFAULT_POSITION = {
     pageX: 0,
@@ -32,10 +42,6 @@ var DEFAULT_POSITION = {
     topPageY: 0,
     topClientX: 0,
     topClientY: 0,
-};
-var DEFAULT_SCROLL_OFFSET = {
-    scrollX: 0,
-    scrollY: 0,
 };
 var setCursorStyle = function (contentWindow, style) {
     var _a, _b, _c, _d;
@@ -48,15 +54,26 @@ var setCursorStyle = function (contentWindow, style) {
         currentRoot.style.cursor = style;
     }
 };
+var calcPositionDelta = function (end, start) {
+    return Object.keys(end || {}).reduce(function (buf, key) {
+        if (isValidNumber(end === null || end === void 0 ? void 0 : end[key]) && isValidNumber(start === null || start === void 0 ? void 0 : start[key])) {
+            buf[key] = end[key] - start[key];
+        }
+        else {
+            buf[key] = end[key];
+        }
+        return buf;
+    }, {});
+};
 var Cursor = /** @class */ (function () {
     function Cursor(engine) {
-        this.type = CursorType.Move;
+        this.type = CursorType.Normal;
+        this.dragType = CursorDragType.Move;
         this.status = CursorStatus.Normal;
         this.position = DEFAULT_POSITION;
-        this.dragStartPosition = DEFAULT_POSITION;
-        this.dragStartScrollOffset = DEFAULT_SCROLL_OFFSET;
-        this.dragEndPosition = DEFAULT_POSITION;
-        this.dragEndScrollOffset = DEFAULT_SCROLL_OFFSET;
+        this.dragAtomDelta = DEFAULT_POSITION;
+        this.dragStartToCurrentDelta = DEFAULT_POSITION;
+        this.dragStartToEndDelta = DEFAULT_POSITION;
         this.view = globalThisPolyfill;
         this.engine = engine;
         this.makeObservable();
@@ -64,12 +81,14 @@ var Cursor = /** @class */ (function () {
     Cursor.prototype.makeObservable = function () {
         define(this, {
             type: observable.ref,
+            dragType: observable.ref,
             status: observable.ref,
             position: observable.ref,
             dragStartPosition: observable.ref,
-            dragStartScrollOffset: observable.ref,
             dragEndPosition: observable.ref,
-            dragEndScrollOffset: observable.ref,
+            dragAtomDelta: observable.ref,
+            dragStartToCurrentDelta: observable.ref,
+            dragStartToEndDelta: observable.ref,
             view: observable.ref,
             setStyle: action,
             setPosition: action,
@@ -77,11 +96,22 @@ var Cursor = /** @class */ (function () {
             setType: action,
         });
     };
+    Object.defineProperty(Cursor.prototype, "speed", {
+        get: function () {
+            return Math.sqrt(Math.pow(this.dragAtomDelta.clientX, 2) +
+                Math.pow(this.dragAtomDelta.clientY, 2));
+        },
+        enumerable: false,
+        configurable: true
+    });
     Cursor.prototype.setStatus = function (status) {
         this.status = status;
     };
     Cursor.prototype.setType = function (type) {
         this.type = type;
+    };
+    Cursor.prototype.setDragType = function (type) {
+        this.dragType = type;
     };
     Cursor.prototype.setStyle = function (style) {
         this.engine.workbench.eachWorkspace(function (workspace) {
@@ -89,19 +119,32 @@ var Cursor = /** @class */ (function () {
         });
     };
     Cursor.prototype.setPosition = function (position) {
-        this.position = __assign(__assign({}, this.position), position);
+        this.dragAtomDelta = calcPositionDelta(this.position, position);
+        this.position = __assign({}, position);
+        if (this.status === CursorStatus.Dragging) {
+            this.dragStartToCurrentDelta = calcPositionDelta(this.position, this.dragStartPosition);
+        }
     };
     Cursor.prototype.setDragStartPosition = function (position) {
-        this.dragStartPosition = __assign(__assign({}, this.dragStartPosition), position);
+        if (position) {
+            this.dragStartPosition = __assign({}, position);
+        }
+        else {
+            this.dragStartPosition = null;
+            this.dragStartToCurrentDelta = DEFAULT_POSITION;
+        }
     };
     Cursor.prototype.setDragEndPosition = function (position) {
-        this.dragEndPosition = __assign(__assign({}, this.dragEndPosition), position);
-    };
-    Cursor.prototype.setDragStartScrollOffset = function (offset) {
-        this.dragStartScrollOffset = __assign(__assign({}, this.dragStartScrollOffset), offset);
-    };
-    Cursor.prototype.setDragEndScrollOffset = function (offset) {
-        this.dragEndScrollOffset = __assign(__assign({}, this.dragEndScrollOffset), offset);
+        if (!this.dragStartPosition)
+            return;
+        if (position) {
+            this.dragEndPosition = __assign({}, position);
+            this.dragStartToEndDelta = calcPositionDelta(this.dragStartPosition, this.dragEndPosition);
+        }
+        else {
+            this.dragEndPosition = null;
+            this.dragStartToEndDelta = DEFAULT_POSITION;
+        }
     };
     return Cursor;
 }());

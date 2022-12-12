@@ -42,7 +42,7 @@ var reSortBehaviors = function (target, sources) {
             each(behavior.extends, function (dep) {
                 var behavior = findSourceBehavior(dep);
                 if (!behavior)
-                    throw new Error("No " + dep + " behavior that " + name + " depends on");
+                    throw new Error("No ".concat(dep, " behavior that ").concat(name, " depends on"));
                 if (!findTargetBehavior(behavior)) {
                     target.unshift(behavior);
                 }

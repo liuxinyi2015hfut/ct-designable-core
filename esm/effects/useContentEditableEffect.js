@@ -26,7 +26,8 @@ function createCaretCache(el) {
     if (currentSelection.containsNode(el))
         return;
     var ranges = getAllRanges(currentSelection);
-    return function () {
+    return function (offset) {
+        if (offset === void 0) { offset = 0; }
         var sel = globalThisPolyfill.getSelection();
         var firstNode = el.childNodes[0];
         if (!firstNode)
@@ -35,8 +36,8 @@ function createCaretCache(el) {
         ranges.forEach(function (item) {
             var range = document.createRange();
             range.collapse(item.collapsed);
-            range.setStart(firstNode, item.startOffset);
-            range.setEnd(firstNode, item.endOffset);
+            range.setStart(firstNode, item.startOffset + offset);
+            range.setEnd(firstNode, item.endOffset + offset);
             sel.addRange(range);
         });
     };
@@ -93,8 +94,16 @@ export var useContentEditableEffect = function (engine) {
     }
     function onPastHandler(event) {
         event.preventDefault();
+        var node = globalState.activeElements.get(this);
         var text = event.clipboardData.getData('text');
-        this.textContent = text;
+        var selObj = globalThisPolyfill.getSelection();
+        var target = event.target;
+        var selRange = selObj.getRangeAt(0);
+        var restore = createCaretCache(target);
+        selRange.deleteContents();
+        selRange.insertNode(document.createTextNode(text));
+        Path.setIn(node.props, this.getAttribute(engine.props.contentEditableAttrName), target.textContent);
+        restore(text.length);
     }
     function findTargetNodeId(element) {
         if (!element)
@@ -102,14 +111,14 @@ export var useContentEditableEffect = function (engine) {
         var nodeId = element.getAttribute(engine.props.contentEditableNodeIdAttrName);
         if (nodeId)
             return nodeId;
-        var parent = element.closest("*[" + engine.props.nodeIdAttrName + "]");
+        var parent = element.closest("*[".concat(engine.props.nodeIdAttrName, "]"));
         if (parent)
             return parent.getAttribute(engine.props.nodeIdAttrName);
     }
     engine.subscribeTo(MouseClickEvent, function (event) {
         var _a;
         var target = event.data.target;
-        var editableElement = (_a = target === null || target === void 0 ? void 0 : target.closest) === null || _a === void 0 ? void 0 : _a.call(target, "*[" + engine.props.contentEditableAttrName + "]");
+        var editableElement = (_a = target === null || target === void 0 ? void 0 : target.closest) === null || _a === void 0 ? void 0 : _a.call(target, "*[".concat(engine.props.contentEditableAttrName, "]"));
         if (editableElement &&
             editableElement.getAttribute('contenteditable') === 'true')
             return;
@@ -128,7 +137,7 @@ export var useContentEditableEffect = function (engine) {
     engine.subscribeTo(MouseDoubleClickEvent, function (event) {
         var _a;
         var target = event.data.target;
-        var editableElement = (_a = target === null || target === void 0 ? void 0 : target.closest) === null || _a === void 0 ? void 0 : _a.call(target, "*[" + engine.props.contentEditableAttrName + "]");
+        var editableElement = (_a = target === null || target === void 0 ? void 0 : target.closest) === null || _a === void 0 ? void 0 : _a.call(target, "*[".concat(engine.props.contentEditableAttrName, "]"));
         var workspace = engine.workbench.activeWorkspace;
         var tree = workspace.operation.tree;
         if (editableElement) {

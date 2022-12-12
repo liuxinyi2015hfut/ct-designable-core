@@ -6,6 +6,8 @@ var __extends = (this && this.__extends) || (function () {
         return extendStatics(d, b);
     };
     return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
         extendStatics(d, b);
         function __() { this.constructor = d; }
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
@@ -59,18 +61,18 @@ var Engine = /** @class */ (function (_super) {
         var results = [];
         for (var i = 0; i < this.workbench.workspaces.length; i++) {
             var workspace = this.workbench.workspaces[i];
-            results = results.concat(workspace.operation.getSelectedNodes());
+            results = results.concat(workspace.operation.selection.selectedNodes);
         }
         return results;
     };
     Engine.prototype.findNodeById = function (id) {
         return TreeNode.findById(id);
     };
-    Engine.prototype.findDraggingNodes = function () {
+    Engine.prototype.findMovingNodes = function () {
         var results = [];
         this.workbench.eachWorkspace(function (workspace) {
             var _a;
-            (_a = workspace.operation.viewportDragon.dragNodes) === null || _a === void 0 ? void 0 : _a.forEach(function (node) {
+            (_a = workspace.operation.moveHelper.dragNodes) === null || _a === void 0 ? void 0 : _a.forEach(function (node) {
                 if (!results.includes(node)) {
                     results.push(node);
                 }
@@ -98,7 +100,8 @@ var Engine = /** @class */ (function (_super) {
         contentEditableNodeIdAttrName: 'data-content-editable-node-id',
         clickStopPropagationAttrName: 'data-click-stop-propagation',
         nodeSelectionIdAttrName: 'data-designer-node-helpers-id',
-        nodeDragHandlerAttrName: 'data-designer-node-handler',
+        nodeDragHandlerAttrName: 'data-designer-node-drag-handler',
+        screenResizeHandlerAttrName: 'data-designer-screen-resize-handler',
         nodeResizeHandlerAttrName: 'data-designer-node-resize-handler',
         outlineNodeIdAttrName: 'data-designer-outline-node-id',
         nodeTranslateAttrName: 'data-designer-node-translate-handler',

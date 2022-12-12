@@ -25,9 +25,14 @@ var __read = (this && this.__read) || function (o, n) {
     }
     return ar;
 };
-var __spread = (this && this.__spread) || function () {
-    for (var ar = [], i = 0; i < arguments.length; i++) ar = ar.concat(__read(arguments[i]));
-    return ar;
+var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
+    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+        if (ar || !(i in from)) {
+            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+            ar[i] = from[i];
+        }
+    }
+    return to.concat(ar || Array.prototype.slice.call(from));
 };
 import { isArr } from '@designable/shared';
 import { untracked } from '@formily/reactive';
@@ -41,7 +46,11 @@ export var isBehaviorList = function (val) {
     return Array.isArray(val) && val.every(isBehavior);
 };
 export var isBehavior = function (val) {
-    return (val === null || val === void 0 ? void 0 : val.name) || (val === null || val === void 0 ? void 0 : val.selector) || (val === null || val === void 0 ? void 0 : val.extends) || (val === null || val === void 0 ? void 0 : val.designerProps) || (val === null || val === void 0 ? void 0 : val.designerLocales);
+    return (val === null || val === void 0 ? void 0 : val.name) ||
+        (val === null || val === void 0 ? void 0 : val.selector) ||
+        (val === null || val === void 0 ? void 0 : val.extends) ||
+        (val === null || val === void 0 ? void 0 : val.designerProps) ||
+        (val === null || val === void 0 ? void 0 : val.designerLocales);
 };
 export var isResourceHost = function (val) {
     return (val === null || val === void 0 ? void 0 : val.Resource) && isResourceList(val.Resource);
@@ -70,7 +79,7 @@ export var createBehavior = function () {
     }
     return behaviors.reduce(function (buf, behavior) {
         if (isArr(behavior))
-            return buf.concat(createBehavior.apply(void 0, __spread(behavior)));
+            return buf.concat(createBehavior.apply(void 0, __spreadArray([], __read(behavior), false)));
         var selector = (behavior || {}).selector;
         if (!selector)
             return buf;
@@ -99,6 +108,6 @@ export var createDesigner = function (props) {
     var effects = props.effects || [];
     var shortcuts = props.shortcuts || [];
     return untracked(function () {
-        return new Engine(__assign(__assign({}, props), { effects: __spread(effects, DEFAULT_EFFECTS), drivers: __spread(drivers, DEFAULT_DRIVERS), shortcuts: __spread(shortcuts, DEFAULT_SHORTCUTS) }));
+        return new Engine(__assign(__assign({}, props), { effects: __spreadArray(__spreadArray([], __read(effects), false), __read(DEFAULT_EFFECTS), false), drivers: __spreadArray(__spreadArray([], __read(drivers), false), __read(DEFAULT_DRIVERS), false), shortcuts: __spreadArray(__spreadArray([], __read(shortcuts), false), __read(DEFAULT_SHORTCUTS), false) }));
     });
 };

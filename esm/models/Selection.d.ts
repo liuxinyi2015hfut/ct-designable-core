@@ -8,6 +8,7 @@ export interface ISelection {
 export declare class Selection {
     operation: Operation;
     selected: string[];
+    indexes: Record<string, boolean>;
     constructor(props?: ISelection);
     makeObservable(): void;
     trigger(type?: typeof SelectNodeEvent): any;
@@ -16,6 +17,7 @@ export declare class Selection {
     mapIds(ids: any): any[];
     batchSelect(ids: string[] | TreeNode[]): void;
     batchSafeSelect(ids: string[] | TreeNode[]): void;
+    get selectedNodes(): TreeNode[];
     get first(): string;
     get last(): string;
     get length(): number;

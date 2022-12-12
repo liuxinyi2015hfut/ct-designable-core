@@ -19,9 +19,10 @@ var Shortcut = /** @class */ (function () {
         return results;
     };
     Shortcut.prototype.preventCodes = function (codes) {
+        var _a;
         if (this.codes.length) {
             for (var i = 0; i < codes.length; i++) {
-                var sequence = this.codes[i];
+                var sequence = (_a = this.codes[i]) !== null && _a !== void 0 ? _a : [];
                 for (var j = 0; j < sequence.length; j++) {
                     if (!Shortcut.matchCode(codes[j], sequence[j])) {
                         return false;

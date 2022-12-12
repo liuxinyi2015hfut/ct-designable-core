@@ -1,30 +1,42 @@
-import { IPoint } from '@designable/shared';
+import { IPoint, Rect, IRect } from '@designable/shared';
 import { Workspace } from './Workspace';
 import { Engine } from './Engine';
 import { TreeNode } from './TreeNode';
-import { Selector } from './Selector';
 export interface IViewportProps {
     engine: Engine;
     workspace: Workspace;
     viewportElement: HTMLElement;
     contentWindow: Window;
     nodeIdAttrName: string;
+    moveSensitive?: boolean;
+    moveInsertionType?: IViewportMoveInsertionType;
 }
+export interface IViewportData {
+    scrollX?: number;
+    scrollY?: number;
+    width?: number;
+    height?: number;
+}
+export declare type IViewportMoveInsertionType = 'all' | 'inline' | 'block';
 /**
  * 视口模型
  */
 export declare class Viewport {
     workspace: Workspace;
-    selector: Selector;
     engine: Engine;
     contentWindow: Window;
     viewportElement: HTMLElement;
+    dragStartSnapshot: IViewportData;
     scrollX: number;
     scrollY: number;
     width: number;
     height: number;
+    mounted: boolean;
     attachRequest: number;
     nodeIdAttrName: string;
+    moveSensitive: boolean;
+    moveInsertionType: IViewportMoveInsertionType;
+    nodeElementsStore: Record<string, HTMLElement[]>;
     constructor(props: IViewportProps);
     get isScrollLeft(): boolean;
     get isScrollTop(): boolean;
@@ -35,10 +47,16 @@ export declare class Viewport {
     get isIframe(): boolean;
     get scrollContainer(): Window | HTMLElement;
     get rect(): DOMRect;
-    get innerRect(): DOMRect;
+    get innerRect(): Rect;
     get offsetX(): number;
     get offsetY(): number;
     get scale(): number;
+    get dragScrollXDelta(): number;
+    get dragScrollYDelta(): number;
+    cacheElements(): void;
+    clearCache(): void;
+    getCurrentData(): IViewportData;
+    takeDragStartSnapshot(): void;
     digestViewport(): void;
     elementFromPoint(point: IPoint): Element;
     matchViewport(target: HTMLElement | Element | Window | Document | EventTarget): boolean;
@@ -47,31 +65,26 @@ export declare class Viewport {
     onMount(element: HTMLElement, contentWindow: Window): void;
     onUnmount(): void;
     isPointInViewport(point: IPoint, sensitive?: boolean): boolean;
+    isRectInViewport(rect: IRect): boolean;
     isPointInViewportArea(point: IPoint, sensitive?: boolean): boolean;
     isOffsetPointInViewport(point: IPoint, sensitive?: boolean): boolean;
+    isOffsetRectInViewport(rect: IRect): boolean;
     makeObservable(): void;
-    findElementById(id: string): Element;
-    findElementsById(id: string): Element[];
+    findElementById(id: string): HTMLElement;
+    findElementsById(id: string): HTMLElement[];
     containsElement(element: HTMLElement | Element | EventTarget): boolean;
     getOffsetPoint(topPoint: IPoint): {
         x: number;
         y: number;
     };
-    getElementRect(element: HTMLElement | Element): DOMRect;
-    /**
-     * 相对于主屏幕
-     * @param id
-     */
-    getElementRectById(id: string): DOMRect;
-    /**
-     * 相对于视口
-     * @param id
-     */
-    getElementOffsetRectById(id: string): DOMRect;
+    getElementRect(element: HTMLElement | Element): Rect;
+    getElementRectById(id: string): Rect;
+    getElementOffsetRect(element: HTMLElement | Element): Rect;
+    getElementOffsetRectById(id: string): Rect;
     getValidNodeElement(node: TreeNode): Element;
-    getChildrenRect(node: TreeNode): DOMRect;
-    getChildrenOffsetRect(node: TreeNode): DOMRect;
-    getValidNodeRect(node: TreeNode): DOMRect;
-    getValidNodeOffsetRect(node: TreeNode): DOMRect;
+    getChildrenRect(node: TreeNode): Rect;
+    getChildrenOffsetRect(node: TreeNode): Rect;
+    getValidNodeRect(node: TreeNode): Rect;
+    getValidNodeOffsetRect(node: TreeNode): Rect;
     getValidNodeLayout(node: TreeNode): "vertical" | "horizontal";
 }

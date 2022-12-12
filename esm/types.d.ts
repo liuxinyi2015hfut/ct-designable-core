@@ -11,6 +11,7 @@ export declare type IEngineProps<T = Event> = IEventProps<T> & {
     outlineNodeIdAttrName?: string;
     nodeSelectionIdAttrName?: string;
     nodeDragHandlerAttrName?: string;
+    screenResizeHandlerAttrName?: string;
     nodeResizeHandlerAttrName?: string;
     nodeTranslateAttrName?: string;
     defaultComponentTree?: ITreeNode;

@@ -14,13 +14,20 @@ var __read = (this && this.__read) || function (o, n) {
     }
     return ar;
 };
-var __spread = (this && this.__spread) || function () {
-    for (var ar = [], i = 0; i < arguments.length; i++) ar = ar.concat(__read(arguments[i]));
-    return ar;
+var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
+    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+        if (ar || !(i in from)) {
+            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+            ar[i] = from[i];
+        }
+    }
+    return to.concat(ar || Array.prototype.slice.call(from));
 };
+import { TreeNode } from './TreeNode';
 import { observable, define, action } from '@formily/reactive';
 import { calcDistanceOfPointToRect, calcDistancePointToEdge, isNearAfter, isPointInRect, } from '@designable/shared';
 import { DragNodeEvent, DropNodeEvent } from '../events';
+import { CursorDragType } from './Cursor';
 export var ClosestPosition;
 (function (ClosestPosition) {
     ClosestPosition["Before"] = "BEFORE";
@@ -39,45 +46,75 @@ export var ClosestPosition;
     ClosestPosition["ForbidInnerBefore"] = "FORBID_INNER_BEFORE";
     ClosestPosition["Forbid"] = "FORBID";
 })(ClosestPosition || (ClosestPosition = {}));
-var Dragon = /** @class */ (function () {
-    function Dragon(props) {
+var MoveHelper = /** @class */ (function () {
+    function MoveHelper(props) {
         this.dragNodes = [];
         this.touchNode = null;
-        this.dropNode = null;
         this.closestNode = null;
-        this.closestRect = null;
-        this.closestOffsetRect = null;
-        this.closestDirection = null;
-        this.sensitive = true;
-        this.forceBlock = false;
-        this.viewport = null;
+        this.activeViewport = null;
+        this.viewportClosestRect = null;
+        this.outlineClosestRect = null;
+        this.viewportClosestOffsetRect = null;
+        this.outlineClosestOffsetRect = null;
+        this.viewportClosestDirection = null;
+        this.outlineClosestDirection = null;
+        this.dragging = false;
         this.operation = props.operation;
-        this.viewport = props.viewport;
-        this.sensitive = props.sensitive;
-        this.forceBlock = props.forceBlock;
         this.rootNode = this.operation.tree;
         this.makeObservable();
     }
-    Dragon.prototype.getClosestLayout = function () {
-        return this.viewport.getValidNodeLayout(this.closestNode);
+    Object.defineProperty(MoveHelper.prototype, "cursor", {
+        get: function () {
+            return this.operation.engine.cursor;
+        },
+        enumerable: false,
+        configurable: true
+    });
+    Object.defineProperty(MoveHelper.prototype, "viewport", {
+        get: function () {
+            return this.operation.workspace.viewport;
+        },
+        enumerable: false,
+        configurable: true
+    });
+    Object.defineProperty(MoveHelper.prototype, "outline", {
+        get: function () {
+            return this.operation.workspace.outline;
+        },
+        enumerable: false,
+        configurable: true
+    });
+    Object.defineProperty(MoveHelper.prototype, "hasDragNodes", {
+        get: function () {
+            return this.dragNodes.length > 0;
+        },
+        enumerable: false,
+        configurable: true
+    });
+    Object.defineProperty(MoveHelper.prototype, "closestDirection", {
+        get: function () {
+            if (this.activeViewport === this.outline) {
+                return this.outlineClosestDirection;
+            }
+            return this.viewportClosestDirection;
+        },
+        enumerable: false,
+        configurable: true
+    });
+    MoveHelper.prototype.getClosestLayout = function (viewport) {
+        return viewport.getValidNodeLayout(this.closestNode);
     };
-    /**
-     * 相对最近节点的位置
-     * @readonly
-     * @type {ClosestPosition}
-     * @memberof Dragon
-     */
-    Dragon.prototype.getClosestPosition = function (point) {
+    MoveHelper.prototype.calcClosestPosition = function (point, viewport) {
         var _this = this;
         var closestNode = this.closestNode;
-        if (!closestNode)
+        if (!closestNode || !viewport.isPointInViewport(point))
             return ClosestPosition.Forbid;
-        var closestRect = this.viewport.getValidNodeRect(closestNode);
-        var isInline = this.getClosestLayout() === 'horizontal';
+        var closestRect = viewport.getValidNodeRect(closestNode);
+        var isInline = this.getClosestLayout(viewport) === 'horizontal';
         if (!closestRect) {
             return;
         }
-        var isAfter = isNearAfter(point, closestRect, this.forceBlock ? false : isInline);
+        var isAfter = isNearAfter(point, closestRect, viewport.moveInsertionType === 'block' ? false : isInline);
         var getValidParent = function (node) {
             var _a;
             if (!node)
@@ -86,7 +123,7 @@ var Dragon = /** @class */ (function () {
                 return node.parent;
             return getValidParent(node.parent);
         };
-        if (isPointInRect(point, closestRect, this.sensitive)) {
+        if (isPointInRect(point, closestRect, viewport.moveSensitive)) {
             if (!closestNode.allowAppend(this.dragNodes)) {
                 if (!closestNode.allowSibling(this.dragNodes)) {
                     var parentClosestNode = getValidParent(closestNode);
@@ -127,7 +164,7 @@ var Dragon = /** @class */ (function () {
                     }
                 }
             }
-            if (closestNode.contains.apply(closestNode, __spread(this.dragNodes))) {
+            if (closestNode.contains.apply(closestNode, __spreadArray([], __read(this.dragNodes), false))) {
                 if (isAfter) {
                     return ClosestPosition.InnerAfter;
                 }
@@ -177,21 +214,10 @@ var Dragon = /** @class */ (function () {
             }
         }
     };
-    Dragon.prototype.setClosestPosition = function (direction) {
-        this.closestDirection = direction;
-    };
-    /**
-     * 拖拽过程中最近的节点
-     *
-     * @readonly
-     * @type {TreeNode}
-     * @memberof Dragon
-     */
-    Dragon.prototype.getClosestNode = function (point) {
-        var _this = this;
+    MoveHelper.prototype.calcClosestNode = function (point, viewport) {
         var _a, _b;
         if (this.touchNode) {
-            var touchNodeRect = this.viewport.getValidNodeRect(this.touchNode);
+            var touchNodeRect = viewport.getValidNodeRect(this.touchNode);
             if (!touchNodeRect)
                 return;
             if ((_b = (_a = this.touchNode) === null || _a === void 0 ? void 0 : _a.children) === null || _b === void 0 ? void 0 : _b.length) {
@@ -199,10 +225,10 @@ var Dragon = /** @class */ (function () {
                 var minDistance_1 = touchDistance;
                 var minDistanceNode_1 = this.touchNode;
                 this.touchNode.eachChildren(function (node) {
-                    var rect = _this.viewport.getElementRectById(node.id);
+                    var rect = viewport.getElementRectById(node.id);
                     if (!rect)
                         return;
-                    var distance = isPointInRect(point, rect, _this.sensitive)
+                    var distance = isPointInRect(point, rect, viewport.moveSensitive)
                         ? 0
                         : calcDistanceOfPointToRect(point, rect);
                     if (distance <= minDistance_1) {
@@ -216,116 +242,122 @@ var Dragon = /** @class */ (function () {
                 return this.touchNode;
             }
         }
-        return null;
+        return this.operation.tree;
     };
-    Dragon.prototype.setClosestNode = function (node) {
-        this.closestNode = node;
-    };
-    /**
-     * 从最近的节点中计算出节点矩形
-     *
-     * @readonly
-     * @type {DOMRect}
-     * @memberof Dragon
-     */
-    Dragon.prototype.getClosestRect = function () {
+    MoveHelper.prototype.calcClosestRect = function (viewport, closestDirection) {
         var closestNode = this.closestNode;
-        var closestDirection = this.closestDirection;
         if (!closestNode || !closestDirection)
             return;
-        var closestRect = this.viewport.getValidNodeRect(closestNode);
+        var closestRect = viewport.getValidNodeRect(closestNode);
         if (closestDirection === ClosestPosition.InnerAfter ||
             closestDirection === ClosestPosition.InnerBefore) {
-            return this.viewport.getChildrenRect(closestNode);
+            return viewport.getChildrenRect(closestNode);
         }
         else {
             return closestRect;
         }
     };
-    Dragon.prototype.setClosestRect = function (rect) {
-        this.closestRect = rect;
-    };
-    Dragon.prototype.getClosestOffsetRect = function () {
+    MoveHelper.prototype.calcClosestOffsetRect = function (viewport, closestDirection) {
         var closestNode = this.closestNode;
-        var closestDirection = this.closestDirection;
         if (!closestNode || !closestDirection)
             return;
-        var closestRect = this.viewport.getValidNodeOffsetRect(closestNode);
+        var closestRect = viewport.getValidNodeOffsetRect(closestNode);
         if (closestDirection === ClosestPosition.InnerAfter ||
             closestDirection === ClosestPosition.InnerBefore) {
-            return this.viewport.getChildrenOffsetRect(closestNode);
+            return viewport.getChildrenOffsetRect(closestNode);
         }
         else {
             return closestRect;
         }
     };
-    Dragon.prototype.setClosestOffsetRect = function (rect) {
-        this.closestOffsetRect = rect;
-    };
-    Dragon.prototype.setDragNodes = function (dragNodes) {
-        if (dragNodes === void 0) { dragNodes = []; }
-        this.dragNodes = dragNodes;
-        this.trigger(new DragNodeEvent({
-            target: this.operation.tree,
-            source: dragNodes,
-        }));
-    };
-    Dragon.prototype.setTouchNode = function (node) {
-        this.touchNode = node;
-        if (!node) {
-            this.closestNode = null;
-            this.closestDirection = null;
-            this.closestOffsetRect = null;
-            this.closestRect = null;
+    MoveHelper.prototype.dragStart = function (props) {
+        var nodes = TreeNode.filterDraggable(props === null || props === void 0 ? void 0 : props.dragNodes);
+        if (nodes.length) {
+            this.dragNodes = nodes;
+            this.trigger(new DragNodeEvent({
+                target: this.operation.tree,
+                source: this.dragNodes,
+            }));
+            this.viewport.cacheElements();
+            this.cursor.setDragType(CursorDragType.Move);
+            this.dragging = true;
         }
     };
-    Dragon.prototype.calculate = function (props) {
-        var point = props.point, touchNode = props.touchNode, closestNode = props.closestNode, closestDirection = props.closestDirection;
-        this.setTouchNode(touchNode);
-        this.closestNode = closestNode || this.getClosestNode(point);
-        this.closestDirection = closestDirection || this.getClosestPosition(point);
-        this.closestRect = this.getClosestRect();
-        this.closestOffsetRect = this.getClosestOffsetRect();
+    MoveHelper.prototype.dragMove = function (props) {
+        var point = props.point, touchNode = props.touchNode;
+        if (!this.dragging)
+            return;
+        if (this.outline.isPointInViewport(point, false)) {
+            this.activeViewport = this.outline;
+            this.touchNode = touchNode;
+            this.closestNode = this.calcClosestNode(point, this.outline);
+        }
+        else if (this.viewport.isPointInViewport(point, false)) {
+            this.activeViewport = this.viewport;
+            this.touchNode = touchNode;
+            this.closestNode = this.calcClosestNode(point, this.viewport);
+        }
+        if (!this.activeViewport)
+            return;
+        if (this.activeViewport === this.outline) {
+            this.outlineClosestDirection = this.calcClosestPosition(point, this.outline);
+            this.viewportClosestDirection = this.outlineClosestDirection;
+        }
+        else {
+            this.viewportClosestDirection = this.calcClosestPosition(point, this.viewport);
+            this.outlineClosestDirection = this.viewportClosestDirection;
+        }
+        if (this.outline.mounted) {
+            this.outlineClosestRect = this.calcClosestRect(this.outline, this.outlineClosestDirection);
+            this.outlineClosestOffsetRect = this.calcClosestOffsetRect(this.outline, this.outlineClosestDirection);
+        }
+        if (this.viewport.mounted) {
+            this.viewportClosestRect = this.calcClosestRect(this.viewport, this.viewportClosestDirection);
+            this.viewportClosestOffsetRect = this.calcClosestOffsetRect(this.viewport, this.viewportClosestDirection);
+        }
     };
-    Dragon.prototype.setDropNode = function (node) {
-        this.dropNode = node;
+    MoveHelper.prototype.dragDrop = function (props) {
         this.trigger(new DropNodeEvent({
             target: this.operation.tree,
-            source: node,
+            source: props === null || props === void 0 ? void 0 : props.dropNode,
         }));
     };
-    Dragon.prototype.trigger = function (event) {
+    MoveHelper.prototype.dragEnd = function () {
+        this.dragging = false;
+        this.dragNodes = [];
+        this.touchNode = null;
+        this.closestNode = null;
+        this.activeViewport = null;
+        this.outlineClosestDirection = null;
+        this.outlineClosestOffsetRect = null;
+        this.outlineClosestRect = null;
+        this.viewportClosestDirection = null;
+        this.viewportClosestOffsetRect = null;
+        this.viewportClosestRect = null;
+        this.viewport.clearCache();
+    };
+    MoveHelper.prototype.trigger = function (event) {
         if (this.operation) {
             return this.operation.dispatch(event);
         }
     };
-    Dragon.prototype.clear = function () {
-        this.dragNodes = [];
-        this.touchNode = null;
-        this.dropNode = null;
-        this.closestNode = null;
-        this.closestDirection = null;
-        this.closestOffsetRect = null;
-        this.closestRect = null;
-    };
-    Dragon.prototype.makeObservable = function () {
+    MoveHelper.prototype.makeObservable = function () {
         define(this, {
-            dragNodes: observable.shallow,
+            dragging: observable.ref,
+            dragNodes: observable.ref,
             touchNode: observable.ref,
             closestNode: observable.ref,
-            closestDirection: observable.ref,
-            closestRect: observable.ref,
-            setDragNodes: action,
-            setTouchNode: action,
-            setDropNode: action,
-            setClosestNode: action,
-            setClosestPosition: action,
-            setClosestOffsetRect: action,
-            setClosestRect: action,
-            clear: action,
-            calculate: action,
+            outlineClosestDirection: observable.ref,
+            outlineClosestOffsetRect: observable.ref,
+            outlineClosestRect: observable.ref,
+            viewportClosestDirection: observable.ref,
+            viewportClosestOffsetRect: observable.ref,
+            viewportClosestRect: observable.ref,
+            dragStart: action,
+            dragMove: action,
+            dragEnd: action,
         });
     };
-    return Dragon;
+    return MoveHelper;
 }());
-export { Dragon };
+export { MoveHelper };

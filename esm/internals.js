@@ -28,6 +28,7 @@ export var getBrowserLanguage = function () {
     if (!globalThisPolyfill.navigator) {
         return 'en';
     }
-    return (globalThisPolyfill.navigator['browserlanguage'] || ((_a = globalThisPolyfill.navigator) === null || _a === void 0 ? void 0 : _a.language) ||
+    return (globalThisPolyfill.navigator['browserlanguage'] ||
+        ((_a = globalThisPolyfill.navigator) === null || _a === void 0 ? void 0 : _a.language) ||
         'en');
 };

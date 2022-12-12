@@ -41,8 +41,14 @@ export var SelectPrevNode = new Shortcut({
                         selection.select(previousNode);
                     }
                 }
-                else {
+                else if (selectedNode.parent) {
                     selection.select(selectedNode.parent);
+                }
+                else {
+                    var bottom = findBottomLastChild(selectedNode.lastChild);
+                    if (bottom) {
+                        selection.select(bottom);
+                    }
                 }
             }
         }

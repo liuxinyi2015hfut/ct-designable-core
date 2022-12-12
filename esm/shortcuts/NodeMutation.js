@@ -1,4 +1,4 @@
-import { KeyCode, Shortcut } from '../models';
+import { KeyCode, Shortcut, TreeNode } from '../models';
 /**
  * 快捷删除，快捷复制粘贴
  */
@@ -7,7 +7,7 @@ export var DeleteNodes = new Shortcut({
     handler: function (context) {
         var operation = context === null || context === void 0 ? void 0 : context.workspace.operation;
         if (operation) {
-            operation.removeNodes(operation.getSelectedNodes());
+            TreeNode.remove(operation.selection.selectedNodes);
         }
     },
 });
@@ -22,7 +22,7 @@ export var CopyNodes = new Shortcut({
     handler: function (context) {
         var operation = context === null || context === void 0 ? void 0 : context.workspace.operation;
         if (operation) {
-            Clipboard.nodes = operation.getSelectedNodes();
+            Clipboard.nodes = operation.selection.selectedNodes;
         }
     },
 });
@@ -34,7 +34,7 @@ export var PasteNodes = new Shortcut({
     handler: function (context) {
         var operation = context === null || context === void 0 ? void 0 : context.workspace.operation;
         if (operation) {
-            operation.cloneNodes(Clipboard.nodes);
+            TreeNode.clone(Clipboard.nodes);
         }
     },
 });
